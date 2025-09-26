@@ -2,29 +2,35 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'test_database',
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 };
 
+// Создаем пул соединений
 const pool = mysql.createPool(dbConfig);
 
-// Test connection
+// Функция для проверки подключения
 async function testConnection() {
   try {
     const connection = await pool.getConnection();
-    console.log('Connected to MySQL database');
+    console.log('✅ Успешно подключились к MySQL базе данных');
+   
     connection.release();
+    return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error('❌ Ошибка подключения к MySQL:', error.message);
+    return false;
   }
 }
 
-testConnection();
-
-module.exports = pool;
+// Экспортируем пул и функцию для тестирования
+module.exports = {
+  pool,
+  testConnection
+};

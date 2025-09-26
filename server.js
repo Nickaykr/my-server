@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const apiRoutes = require('./routes/api');
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -12,25 +13,23 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/api', apiRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
-// Basic route
-app.get('/', (req, res) => {
+// Health check
+app.get('/api/health', (req, res) => {
   res.json({ 
-    message: 'Добро пожаловать на сервер!',
-    endpoints: {
-      test: '/api/test',
-      users: '/api/users',
-      health: '/api/health'
-    }
+    status: 'OK', 
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен на порту ${PORT}`);
-  console.log(`📍 Тестовые endpoints:`);
-  console.log(`   http://localhost:${PORT}/api/test`);
-  console.log(`   http://localhost:${PORT}/api/users`);
-  console.log(`   http://localhost:${PORT}/api/health`);
+  console.log(`\n✅ Server running on port ${PORT}`);
+  console.log(`📍 API endpoints:`);
+  console.log(`   http://localhost:${PORT}/api/auth/register`);
+  console.log(`   http://localhost:${PORT}/api/auth/login`);
+  console.log(`   http://localhost:${PORT}/api/users/profile`);
 });
