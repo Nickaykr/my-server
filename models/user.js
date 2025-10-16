@@ -82,6 +82,51 @@ class User {
   static async comparePassword(plainPassword, hashedPassword) {
     return await bcrypt.compare(plainPassword, hashedPassword);
   }
+
+   // 🔄 ОБНОВЛЕНИЕ REFRESH TOKEN
+  static async updateRefreshToken(user_id, refreshToken) {
+    try {
+      const [result] = await pool.execute(
+        'UPDATE users SET refresh_token = ? WHERE user_id = ?',
+        [refreshToken, user_id]
+      );
+      console.log('✅ Refresh token updated for user:', user_id);
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('❌ Error updating refresh token:', error);
+      throw new Error('Ошибка при обновлении токена');
+    }
+  }
+
+  // 🔍 ПОИСК ПО REFRESH TOKEN
+  static async findByRefreshToken(user_id, refreshToken) {
+    try {
+      const [rows] = await pool.execute(
+        'SELECT user_id, email, username, date_of_birth, country, created_at, last_login FROM users WHERE user_id = ? AND refresh_token = ?',
+        [user_id, refreshToken]
+      );
+      console.log('🔍 Refresh token search:', rows[0] ? 'FOUND' : 'NOT FOUND');
+      return rows[0] || null;
+    } catch (error) {
+      console.error('❌ Error in findByRefreshToken:', error);
+      throw new Error('Ошибка при проверке токена');
+    }
+  }
+
+  // 🗑️ ОЧИСТКА REFRESH TOKEN (при выходе)
+  static async clearRefreshToken(user_id) {
+    try {
+      const [result] = await pool.execute(
+        'UPDATE users SET refresh_token = NULL WHERE user_id = ?',
+        [user_id]
+      );
+      console.log('✅ Refresh token cleared for user:', user_id);
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('❌ Error clearing refresh token:', error);
+      throw new Error('Ошибка при очистке токена');
+    }
+  }
 }
 
 module.exports = User;
