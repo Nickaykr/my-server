@@ -49,15 +49,5 @@ app.get('/api/protected-test', auth, (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n✅ Server running on port ${PORT}`);
   console.log(`📍 API endpoints:`);
-  console.log(`   http://localhost:${PORT}/api/auth/register`);
-  console.log(`   http://localhost:${PORT}/api/auth/login`);
-  console.log(`   http://localhost:${PORT}/api/auth/me (protected)`);
-  console.log(`   http://localhost:${PORT}/api/users/profile (protected)`);
-  console.log(`   http://localhost:${PORT}/api/protected-test (protected)`);
-   console.log(`   📺 MEDIA ENDPOINTS:`); // ← ДОБАВЬ ЭТО
-  console.log(`   http://localhost:${PORT}/api/media`);
-  console.log(`   http://localhost:${PORT}/api/media/new`);
-  console.log(`   http://localhost:${PORT}/api/media/popular`);
-  console.log(`   http://localhost:${PORT}/api/media?type=movie`);
-  console.log(`   http://localhost:${PORT}/api/media?type=series`);
+  console.log(`   http://localhost:${PORT}/api/media/comingSoon `);
 });

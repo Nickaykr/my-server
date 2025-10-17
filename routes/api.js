@@ -21,7 +21,7 @@ router.get('/health', async (req, res) => {
   }
 });
 
-// GET /api/media - получить все медиа (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// GET /api/media - получить все медиа 
 router.get('/media', async (req, res) => {
   try {
     const { type, limit = 20, offset = 0, search } = req.query;
@@ -62,8 +62,7 @@ router.get('/media', async (req, res) => {
 
     // Сортировка и пагинация - используем интерполяцию
     query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`;
-    
-    // Используем pool.query вместо pool.execute
+
     const [media] = await pool.query(query);
     
     console.log(`✅ Found ${media.length} media items`);
@@ -88,7 +87,7 @@ router.get('/media', async (req, res) => {
   }
 });
 
-// GET /api/media/new - получить новинки (упрощенная версия)
+// GET /api/media/new - получить новинки 
 router.get('/media/new', async (req, res) => {
   try {
     console.log('📡 /media/new called');
@@ -102,8 +101,8 @@ router.get('/media/new', async (req, res) => {
         type,
         age_rating
       FROM media 
+		  WHERE status = 'released'
       ORDER BY created_at DESC 
-      LIMIT 10
     `);
     
     console.log(`✅ /media/new returning ${media.length} items`);
@@ -121,7 +120,40 @@ router.get('/media/new', async (req, res) => {
   }
 });
 
-// GET /api/media/popular - получить популярные медиа (упрощенная версия)
+// GET /api/media/comingSoon - получить новинки 
+router.get('/media/comingSoon', async (req, res) => {
+  try {
+    console.log('📡 /media/new called');
+    
+    const [media] = await pool.execute(`
+      SELECT 
+        media_id,
+        title,
+        poster_url,
+        release_year,
+        type,
+        age_rating
+      FROM media 
+		  WHERE status = 'coming_soon'
+      ORDER BY created_at DESC 
+    `);
+    
+    console.log(`✅ /media/new returning ${media.length} items`);
+    
+    res.json({
+      success: true,
+      data: media
+    });
+  } catch (error) {
+    console.error('❌ Error fetching new media:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Database error: ' + error.message
+    });
+  }
+});
+
+// GET /api/media/popular - получить популярные медиа 
 router.get('/media/popular', async (req, res) => {
   try {
     console.log('📡 /media/popular called');
@@ -138,7 +170,7 @@ router.get('/media/popular', async (req, res) => {
         kinopoisk_rating
       FROM media 
       ORDER BY COALESCE(imdb_rating, kinopoisk_rating) DESC
-      LIMIT 10
+      LIMIT 9
     `);
     
     console.log(`✅ /media/popular returning ${media.length} items`);
@@ -149,6 +181,66 @@ router.get('/media/popular', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching popular media:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Database error: ' + error.message
+    });
+  }
+});
+
+// GET /api/media/genre/:genreName - получить медиа по жанру
+router.get('/media/genre/:genreName', async (req, res) => {
+  try {
+    const { genreName } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    console.log(`📡 /media/genre/${genreName} called, limit: ${limit}, offset: ${offset}`);
+    
+    // ⭐ Явно преобразуем числа в строки для MySQL
+    const [media] = await pool.execute(`
+      SELECT 
+        m.media_id,
+        m.title,
+        m.original_title,
+        m.type,
+        m.release_year,
+        m.age_rating,
+        m.duration,
+        m.total_seasons,
+        m.poster_url,
+        m.imdb_rating,
+        m.kinopoisk_rating,
+        m.description,
+        GROUP_CONCAT(DISTINCT g.name) as genres
+      FROM media m
+      JOIN media_genres mg ON m.media_id = mg.media_id
+      JOIN genres g ON mg.genre_id = g.genre_id
+      WHERE g.slug = ?
+      GROUP BY m.media_id
+      ORDER BY 
+        m.release_year DESC,
+        m.imdb_rating DESC
+      LIMIT ? OFFSET ?
+    `, [genreName, limit.toString(), offset.toString()]); 
+    
+    console.log(`✅ Found ${media.length} items for slug: ${genreName}`);
+    
+    const formattedMedia = media.map(item => ({
+      ...item,
+      genres: item.genres ? item.genres.split(',') : [],
+      total_seasons: item.total_seasons || null,
+      duration: item.duration || 0
+    }));
+    
+    res.json({
+      success: true,
+      data: formattedMedia,
+      genre: genreName,
+      pagination: { limit, offset, total: formattedMedia.length }
+    });
+  } catch (error) {
+    console.error(`❌ Error fetching ${req.params.genreName} media:`, error);
     res.status(500).json({ 
       success: false,
       error: 'Database error: ' + error.message
