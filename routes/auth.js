@@ -9,21 +9,12 @@ console.log('🔍 Checking User model...');
 console.log('👤 User model:', User);
 console.log('👤 User.findByEmail:', typeof User.findByEmail);
 
-// Генерация токенов
-const generateTokens = (userId) => {
-  const accessToken = jwt.sign(
+const generateToken = (userId) => {  
+  return jwt.sign(
     { userId }, 
-    process.env.JWT_ACCESS_SECRET, 
-    { expiresIn: '15m' }
+    process.env.JWT_SECRET, 
+    { expiresIn: '30d' }
   );
-  
-  const refreshToken = jwt.sign(
-    { userId }, 
-    process.env.JWT_REFRESH_SECRET, 
-    { expiresIn: '7d' }
-  );
-  
-  return { accessToken, refreshToken };
 };
 
 // Регистрация
@@ -44,17 +35,16 @@ router.post('/register', async (req, res) => {
 
     console.log('✅ User created with ID:', user.user_id);
 
-    // Генерируем оба токена
-    const { accessToken, refreshToken } = generateTokens(user.user_id);
+    // Генерируем токен
+    const token = generateToken(user.user_id);
     
     // Сохраняем refresh token в базе
-    await User.updateRefreshToken(user.user_id, refreshToken);
+    await User.updateRefreshToken(user.user_id, token);
     await User.updateLastLogin(user.user_id);
 
     res.status(201).json({
       message: 'User registered successfully',
-      accessToken, // ← ИСПРАВЛЕНО: было token, теперь accessToken
-      refreshToken, // ← ДОБАВЛЕНО
+     token: token,
       user: {
         id: user.user_id,
         email: user.email,
@@ -77,7 +67,7 @@ router.post('/login', async (req, res) => {
 
     console.log('🔐 Login attempt for:', email);
 
-    // Ищем пользователя через вашу модель
+    // Ищем пользователя 
     const user = await User.findByEmail(email);
     console.log('👤 User found:', !!user);
     
@@ -85,7 +75,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Проверяем пароль через вашу модель
+    // Проверяем пароль 
     const isPasswordValid = await User.comparePassword(password, user.password_hash);
     console.log('🔑 Password valid:', isPasswordValid);
     
@@ -93,19 +83,17 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Генерируем оба токена
-    const { accessToken, refreshToken } = generateTokens(user.user_id);
+   const token = generateToken(user.user_id);
     
     // Сохраняем refresh token в базе
-    await User.updateRefreshToken(user.user_id, refreshToken);
+    await User.updateRefreshToken(user.user_id, token);
     await User.updateLastLogin(user.user_id);
 
     console.log('✅ Login successful for:', user.email);
 
     res.json({
       message: 'Login successful',
-      accessToken, // ← ИСПРАВЛЕНО: было token, теперь accessToken
-      refreshToken, // ← ДОБАВЛЕНО
+      token: token,
       user: {
         id: user.user_id,
         email: user.email,
@@ -121,7 +109,7 @@ router.post('/login', async (req, res) => {
     console.error('❌ Login error:', error);
     res.status(500).json({ error: error.message || 'Server error during login' });
   }
-}); // ← ДОБАВЛЕНА закрывающая скобка для login
+}); 
 
 // 🔄 ОБНОВЛЕНИЕ ACCESS TOKEN
 router.post('/refresh', async (req, res) => {

@@ -51,7 +51,7 @@ router.get('/media', async (req, res) => {
     `;
 
     // Фильтр по типу
-    if (type && ['movie', 'series'].includes(type)) {
+    if (type && ['movie', 'tv_  series'].includes(type)) {
       query += ` AND type = '${type}'`;
     }
 
@@ -133,12 +133,14 @@ router.get('/media/comingSoon', async (req, res) => {
         release_year,
         type,
         age_rating
+        duration,  
+        description   
       FROM media 
 		  WHERE status = 'coming_soon'
       ORDER BY created_at DESC 
     `);
     
-    console.log(`✅ /media/new returning ${media.length} items`);
+    console.log(`✅ / media/new returning ${media.length} items`);
     
     res.json({
       success: true,
@@ -167,7 +169,9 @@ router.get('/media/popular', async (req, res) => {
         type,
         age_rating,
         imdb_rating,
-        kinopoisk_rating
+        kinopoisk_rating,
+        duration,  
+        description   
       FROM media 
       ORDER BY COALESCE(imdb_rating, kinopoisk_rating) DESC
       LIMIT 9
@@ -197,7 +201,6 @@ router.get('/media/genre/:genreName', async (req, res) => {
     
     console.log(`📡 /media/genre/${genreName} called, limit: ${limit}, offset: ${offset}`);
     
-    // ⭐ Явно преобразуем числа в строки для MySQL
     const [media] = await pool.execute(`
       SELECT 
         m.media_id,
@@ -241,37 +244,6 @@ router.get('/media/genre/:genreName', async (req, res) => {
     });
   } catch (error) {
     console.error(`❌ Error fetching ${req.params.genreName} media:`, error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Database error: ' + error.message
-    });
-  }
-});
-
-// Упрощенный GET /api/media/:id
-router.get('/media/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    console.log('📡 /media/:id called with id:', id);
-    
-    const [media] = await pool.execute(
-      `SELECT * FROM media WHERE media_id = ?`,
-      [id]
-    );
-    
-    if (media.length === 0) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Media not found' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: media[0]
-    });
-  } catch (error) {
-    console.error('❌ Error fetching media by ID:', error);
     res.status(500).json({ 
       success: false,
       error: 'Database error: ' + error.message

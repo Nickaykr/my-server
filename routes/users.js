@@ -1,7 +1,6 @@
-// routes/users.js
 const express = require('express');
 const { auth } = require('../middleware/auth');
-const User = require('../models/user'); // Импортируем вашу модель
+const User = require('../models/user'); 
 
 const router = express.Router();
 
