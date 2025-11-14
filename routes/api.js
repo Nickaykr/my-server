@@ -21,12 +21,9 @@ router.get('/health', async (req, res) => {
   }
 });
 
-// GET /api/media - получить все медиа 
 router.get('/media', async (req, res) => {
   try {
-    const { type, limit = 20, offset = 0, search } = req.query;
-    
-    console.log('📡 Query parameters:', { type, limit, offset, search });
+    const { type, limit = 20, offset = 0, search, is_animation } = req.query;
     
     let query = `
       SELECT 
@@ -45,27 +42,34 @@ router.get('/media', async (req, res) => {
         imdb_rating,
         kinopoisk_rating,
         created_at,
-        updated_at
+        updated_at,
+        is_animation 
       FROM media 
       WHERE 1=1
     `;
 
-    // Фильтр по типу
-    if (type && ['movie', 'tv_  series'].includes(type)) {
-      query += ` AND type = '${type}'`;
+    const params = [];
+
+    if (type && ['movie', 'tv_series'].includes(type)) {
+      query += ` AND type = ?`;
+      params.push(type);
     }
 
-    // Поиск по названию
-    if (search) {
-      query += ` AND (title LIKE '%${search}%' OR original_title LIKE '%${search}%')`;
+    if (is_animation !== undefined && is_animation !== 'undefined') {
+      const animValue = (is_animation === 'true' || is_animation === '1') ? 1 : 0;
+      query += ` AND is_animation = ?`;
+      params.push(animValue);
     }
 
-    // Сортировка и пагинация - используем интерполяцию
-    query += ` ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`;
+    if (search && search.trim() !== '') {
+      query += ` AND (title LIKE ? OR original_title LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
+    }
 
-    const [media] = await pool.query(query);
+    query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    params.push(parseInt(limit), parseInt(offset));
     
-    console.log(`✅ Found ${media.length} media items`);
+    const [media] = await pool.query(query, params);
     
     res.json({
       success: true,
@@ -76,14 +80,10 @@ router.get('/media', async (req, res) => {
         total: media.length
       }
     });
+
   } catch (error) {
-    console.error('❌ Error fetching media:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Database error: ' + error.message,
-      code: error.code,
-      details: 'Check if media table exists and has data'
-    });
+    console.error('Query error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -250,5 +250,106 @@ router.get('/media/genre/:genreName', async (req, res) => {
     });
   }
 });
+
+router.get('/cinema-clubs', async (req, res) => {
+  try {
+    const { type, limit = 10 } = req.query;
+    
+    console.log('🎯 Cinema clubs with pool.query:', { type, limit });
+    
+    let query = `
+      SELECT 
+        club_id,
+        title,
+        description, 
+        type,
+        cover_image,
+        created_at
+      FROM cinema_clubs
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (type && type !== 'undefined') {
+      query += ` AND type = ?`;
+      params.push(type);
+    }
+    
+    query += ` ORDER BY created_at DESC LIMIT ?`;
+    
+    const limitNum = Number(limit) || 10;
+    params.push(limitNum);
+    
+    console.log('🔍 Query:', query);
+    console.log('🔍 Params:', params);
+
+    // Используем pool.query вместо pool.execute
+    const [clubs] = await pool.query(query, params);
+    
+    console.log(`✅ Found ${clubs.length} cinema clubs with pool.query`);
+
+    // Для каждого клуба получаем количество медиа и сами медиа
+    for (let club of clubs) {
+      try {
+        // Получаем количество медиа
+        const [countResult] = await pool.query(
+          'SELECT COUNT(*) as media_count FROM club_media WHERE club_id = ?',
+          [club.club_id]
+        );
+        club.media_count = countResult[0].media_count;
+        
+        // Получаем медиа
+        const [media] = await pool.query(`
+          SELECT m.* FROM media m
+          JOIN club_media cm ON m.media_id = cm.media_id
+          WHERE cm.club_id = ?
+          ORDER BY cm.sort_order LIMIT 6
+        `, [club.club_id]);
+        
+        club.media = media || [];
+      } catch (mediaError) {
+        console.error(`❌ Error loading media for club ${club.club_id}:`, mediaError);
+        club.media_count = 0;
+        club.media = [];
+      }
+    }
+    
+    res.json({ success: true, data: clubs });
+  } catch (error) {
+    console.error('❌ Error in cinema clubs with pool.query:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Получить конкретный киноклуб с полной информацией
+router.get('/cinema-clubs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [club] = await pool.execute(`
+      SELECT * FROM cinema_clubs WHERE club_id = ?
+    `, [id]);
+    
+    const [media] = await pool.execute(`
+      SELECT m.* FROM media m
+      JOIN club_media cm ON m.media_id = cm.media_id
+      WHERE cm.club_id = ?
+      ORDER BY cm.sort_order
+    `, [id]);
+    
+    res.json({ 
+      success: true, 
+      data: {
+        ...club[0],
+        media
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching cinema club:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 module.exports = router;
