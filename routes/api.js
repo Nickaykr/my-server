@@ -251,6 +251,70 @@ router.get('/media/genre/:genreName', async (req, res) => {
   }
 });
 
+router.get('/media/:id', async (req, res) => {
+  try {
+    const mediaId = req.params.id;
+    
+    console.log('🔍 Fetching media by ID with genres:', mediaId);
+    
+    const query = `
+      SELECT 
+        m.media_id,
+        m.title,
+        m.original_title,
+        m.description,
+        m.type,
+        m.release_year,
+        m.age_rating,
+        m.duration,
+        m.total_seasons,
+        m.poster_url,
+        m.background_url,
+        m.trailer_url,
+        m.imdb_rating,
+        m.kinopoisk_rating,
+        m.created_at,
+        m.updated_at,
+        m.is_animation,
+        GROUP_CONCAT(DISTINCT g.name) as genres
+      FROM media m
+      LEFT JOIN media_genres mg ON m.media_id = mg.media_id
+      LEFT JOIN genres g ON mg.genre_id = g.genre_id
+      WHERE m.media_id = ?
+      GROUP BY m.media_id
+    `;
+
+    const [media] = await pool.query(query, [mediaId]);
+    
+    if (media.length === 0) {
+      console.log('❌ Media not found for ID:', mediaId);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Media not found' 
+      });
+    }
+
+    const mediaWithGenres = {
+      ...media[0],
+      genres: media[0].genres ? media[0].genres.split(',') : []
+    };
+
+    console.log('✅ Media found with genres:', mediaWithGenres.title, mediaWithGenres.genres);
+    
+    res.json({
+      success: true,
+      data: mediaWithGenres
+    });
+
+  } catch (error) {
+    console.error('Query error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 router.get('/cinema-clubs', async (req, res) => {
   try {
     const { type, limit = 10 } = req.query;
@@ -286,6 +350,23 @@ router.get('/cinema-clubs', async (req, res) => {
 
     // Используем pool.query вместо pool.execute
     const [clubs] = await pool.query(query, params);
+
+    // Исправляем пути к изображениям для киноклубов
+    const clubsWithFixedImages = clubs.map(club => {
+      let coverImage = club.cover_image;
+      
+      // Добавляем / в начало если его нет
+      if (coverImage && !coverImage.startsWith('/')) {
+        coverImage = '/' + coverImage;
+      }
+      
+      return {
+        ...club,
+        cover_image: coverImage, // Теперь путь будет "/public/covers/comedy_club.jpg"
+        media_count: 0,
+        media: []
+      };
+    });
     
     console.log(`✅ Found ${clubs.length} cinema clubs with pool.query`);
 

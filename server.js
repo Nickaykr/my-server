@@ -28,7 +28,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', auth, userRoutes); 
 app.use('/api', apiRoutes); 
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -43,6 +42,11 @@ app.get('/api/protected-test', auth, (req, res) => {
     message: 'Protected route works!', 
     user: req.user.email 
   });
+});
+
+app.use((err, req, res, next) => {
+  console.error('❌ Server Error:', err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // Start server

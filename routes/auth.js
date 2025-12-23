@@ -4,17 +4,18 @@ const User = require('../models/user');
 
 const router = express.Router();
 
-// ДИАГНОСТИКА - проверяем что модель загружена
-console.log('🔍 Checking User model...');
-console.log('👤 User model:', User);
-console.log('👤 User.findByEmail:', typeof User.findByEmail);
-
-const generateToken = (userId) => {  
-  return jwt.sign(
-    { userId }, 
-    process.env.JWT_SECRET, 
-    { expiresIn: '30d' }
+const generateTokens = (user) => {
+  const accessToken = jwt.sign(
+    { userId: user._id }, 
+    process.env.JWT_ACCESS_SECRET, 
+    { expiresIn: '15m' } 
   );
+  const refreshToken = jwt.sign(
+    { userId: user._id }, 
+    process.env.JWT_REFRESH_SECRET, 
+    { expiresIn: '30d' } 
+  );
+  return { accessToken, refreshToken };
 };
 
 // Регистрация
@@ -22,9 +23,7 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password, username, date_of_birth, country } = req.body;
 
-    console.log('📝 Registration attempt for:', email);
-
-    // Создаем пользователя через вашу модель
+    // Создаем пользователя через модель
     const user = await User.create({
       email,
       password,
@@ -33,18 +32,17 @@ router.post('/register', async (req, res) => {
       country
     });
 
-    console.log('✅ User created with ID:', user.user_id);
-
     // Генерируем токен
-    const token = generateToken(user.user_id);
+    const { accessToken, refreshToken } = generateTokens(user);
     
     // Сохраняем refresh token в базе
-    await User.updateRefreshToken(user.user_id, token);
+    await User.updateRefreshToken(user.user_id, refreshToken);
     await User.updateLastLogin(user.user_id);
 
     res.status(201).json({
       message: 'User registered successfully',
-     token: token,
+      accessToken,    
+      refreshToken,
       user: {
         id: user.user_id,
         email: user.email,
@@ -65,43 +63,35 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('🔐 Login attempt for:', email);
-
     // Ищем пользователя 
     const user = await User.findByEmail(email);
-    console.log('👤 User found:', !!user);
-    
+  
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     // Проверяем пароль 
     const isPasswordValid = await User.comparePassword(password, user.password_hash);
-    console.log('🔑 Password valid:', isPasswordValid);
     
     if (!isPasswordValid) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-   const token = generateToken(user.user_id);
+    const { accessToken, refreshToken } = generateTokens(user);
     
-    // Сохраняем refresh token в базе
-    await User.updateRefreshToken(user.user_id, token);
+    await User.updateRefreshToken(user.user_id, refreshToken);
     await User.updateLastLogin(user.user_id);
 
     console.log('✅ Login successful for:', user.email);
 
     res.json({
       message: 'Login successful',
-      token: token,
+      accessToken,
+      refreshToken,
       user: {
         id: user.user_id,
         email: user.email,
         username: user.username,
-        date_of_birth: user.date_of_birth,
-        country: user.country,
-        created_at: user.created_at,
-        last_login: user.last_login
       }
     });
 
@@ -111,59 +101,30 @@ router.post('/login', async (req, res) => {
   }
 }); 
 
-// 🔄 ОБНОВЛЕНИЕ ACCESS TOKEN
 router.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) return res.status(401).send();
+
   try {
-    const { refreshToken } = req.body;
-
-    console.log('🔄 Refresh token attempt');
-
-    if (!refreshToken) {
-      return res.status(401).json({ error: 'Refresh token required' });
-    }
-
-    // Проверяем refresh token
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.userId);
     
-    // Проверяем что refresh token есть в базе
-    const user = await User.findByRefreshToken(decoded.userId, refreshToken);
-    if (!user) {
-      console.log('❌ Refresh token not found in database');
-      return res.status(401).json({ error: 'Invalid refresh token' });
+    if (!user || user.refresh_token !== refreshToken) {
+      console.log('❌ Refresh token mismatch or user not found');
+      return res.status(403).json({ error: 'Session expired or invalid' });
     }
 
-    // Генерируем новые токены
-    const tokens = generateTokens(user.user_id);
+    // Генерируем новую пару
+    const tokens = generateTokens(user);
     
-    // Обновляем refresh token в базе
     await User.updateRefreshToken(user.user_id, tokens.refreshToken);
-
-    console.log('✅ Token refreshed for user:', user.email);
 
     res.json({
       accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: user.user_id,
-        email: user.email,
-        username: user.username,
-        date_of_birth: user.date_of_birth,
-        country: user.country
-      }
+      refreshToken: tokens.refreshToken
     });
-
-  } catch (error) {
-    console.error('❌ Refresh token error:', error);
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Refresh token expired' });
-    }
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Invalid refresh token' });
-    }
-    
-    res.status(500).json({ error: 'Server error during token refresh' });
+  } catch (e) {
+    res.status(403).send();
   }
 });
 

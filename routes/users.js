@@ -1,6 +1,5 @@
 const express = require('express');
 const { auth } = require('../middleware/auth');
-const User = require('../models/user'); 
 
 const router = express.Router();
 
@@ -30,11 +29,7 @@ router.get('/profile', auth, async (req, res) => {
 router.put('/profile', auth, async (req, res) => {
   try {
     const { username, avatar_url, date_of_birth, country } = req.body;
-    
-    console.log('✏️ Update profile for user:', req.user.email);
 
-    // Здесь нужно добавить метод update в вашу модель User
-    // Пока просто возвращаем обновленные данные
     const updatedUser = {
       ...req.user,
       username: username || req.user.username,
@@ -42,8 +37,6 @@ router.put('/profile', auth, async (req, res) => {
       date_of_birth: date_of_birth || req.user.date_of_birth,
       country: country || req.user.country
     };
-
-    console.log('✅ Profile updated successfully');
 
     res.json({ 
       message: 'Profile updated successfully',

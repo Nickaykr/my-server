@@ -20,7 +20,7 @@ class User {
   static async findById(user_id) {
     try {
       const [rows] = await pool.execute(
-        'SELECT user_id, email, username, avatar_url, date_of_birth, country, created_at, last_login FROM users WHERE user_id = ?',
+        'SELECT * FROM users WHERE user_id = ?',
         [user_id]
       );
       return rows[0] || null;
@@ -83,7 +83,7 @@ class User {
     return await bcrypt.compare(plainPassword, hashedPassword);
   }
 
-   // 🔄 ОБНОВЛЕНИЕ REFRESH TOKEN
+  //  ОБНОВЛЕНИЕ REFRESH TOKEN
   static async updateRefreshToken(user_id, refreshToken) {
     try {
       const [result] = await pool.execute(
@@ -113,7 +113,7 @@ class User {
     }
   }
 
-  // 🗑️ ОЧИСТКА REFRESH TOKEN (при выходе)
+  //ОЧИСТКА REFRESH TOKEN (при выходе)
   static async clearRefreshToken(user_id) {
     try {
       const [result] = await pool.execute(
