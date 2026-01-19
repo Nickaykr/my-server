@@ -1,3 +1,4 @@
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 
@@ -6,43 +7,31 @@ const auth = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      return res.status(401).json({ error: 'Access denied. No token provided.' });
+      return res.status(401).json({ error: 'Доступ запрещен. Токен отсутствует.' });
     }
 
-    console.log('🔐 Verifying token (refresh):', token.substring(0, 20) + '...');
+    //верифицируем токен
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     
-    // Проверяем токен с ЕДИНЫМ секретом
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token decoded:', decoded);
+    if (!decoded.userId) {
+       console.error('❌ В токене отсутствует userId:', decoded);
+       return res.status(401).json({ error: 'Невалидный токен: отсутствует ID пользователя' });
+    }
 
-    // Проверяем что токен есть в базе
-    const user = await User.findByRefreshToken(decoded.userId, token);
+    const user = await User.findById(decoded.userId); 
     
     if (!user) {
-      console.error('❌ Token not found in database for user:', decoded.userId);
-      return res.status(401).json({ error: 'Token is not valid.' });
+      return res.status(401).json({ error: 'Пользователь не найден.' });
     }
 
-    console.log('✅ User authenticated:', user.email);
-    
     req.user = user;
     next();
   } catch (error) {
     console.error('❌ Auth middleware error:', error.message);
-    
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired.' });
+      return res.status(401).json({ error: 'Срок действия токена истек.' });
     }
-    
-    if (error.name === 'JsonWebTokenError') {
-      if (error.message.includes('secret')) {
-        console.error('❌ JWT_ACCESS_SECRET is not set properly!');
-        return res.status(500).json({ error: 'Server configuration error - JWT secret missing' });
-      }
-      return res.status(401).json({ error: 'Invalid token.' });
-    }
-    
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(401).json({ error: 'Ошибка авторизации' });
   }
 };
 

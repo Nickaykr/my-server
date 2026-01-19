@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
@@ -6,12 +7,12 @@ const router = express.Router();
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { userId: user._id }, 
+    { userId: user.user_id }, 
     process.env.JWT_ACCESS_SECRET, 
     { expiresIn: '15m' } 
   );
   const refreshToken = jwt.sign(
-    { userId: user._id }, 
+    { userId: user.user_id }, 
     process.env.JWT_REFRESH_SECRET, 
     { expiresIn: '30d' } 
   );
