@@ -6,6 +6,8 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const apiRoutes = require('./routes/api'); 
+const mediaRoutes = require('./routes/media');
+const cinemaRoutes = require('./routes/cinemaRoutes');
 const { auth } = require('./middleware/auth'); 
 
 const app = express();
@@ -24,6 +26,8 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.use('/api/media', mediaRoutes);
+app.use('/api/cinema-clubs', cinemaRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', auth, userRoutes); 
 app.use('/api', apiRoutes); 

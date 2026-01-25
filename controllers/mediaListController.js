@@ -1,0 +1,224 @@
+const { pool } = require('../config/database');
+
+exports.getMediaList = async (req, res) => {
+    try {
+        const { type, limit = 20, offset = 0, search, is_animation } = req.query;
+        
+        let query = `
+        SELECT 
+            media_id,
+            title,
+            original_title,
+            description,
+            type,
+            release_year,
+            age_rating,
+            duration,
+            total_seasons,
+            poster_url,
+            video_url,
+            trailer_url,
+            imdb_rating,
+            kinopoisk_rating,
+            created_at,
+            updated_at,
+            is_animation 
+        FROM media 
+        WHERE 1=1
+        `;
+
+        const params = [];
+
+        if (type && ['movie', 'tv_series'].includes(type)) {
+        query += ` AND type = ?`;
+        params.push(type);
+        }
+
+        if (is_animation !== undefined && is_animation !== 'undefined') {
+        const animValue = (is_animation === 'true' || is_animation === '1') ? 1 : 0;
+        query += ` AND is_animation = ?`;
+        params.push(animValue);
+        }
+
+        if (search && search.trim() !== '') {
+        query += ` AND (title LIKE ? OR original_title LIKE ?)`;
+        params.push(`%${search}%`, `%${search}%`);
+        }
+
+        query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+        params.push(parseInt(limit), parseInt(offset));
+        
+        const [media] = await pool.query(query, params);
+        
+        res.json({
+        success: true,
+        data: media,
+        pagination: {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            total: media.length
+        }
+        });
+
+    } catch (error) {
+        console.error('Query error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+}
+
+exports.getNewMedia = async (req, res) => {
+    try {
+        const [media] = await pool.execute(`
+        SELECT 
+            media_id,
+            title,
+            poster_url,
+            release_year,
+            type,
+            age_rating
+        FROM media 
+            WHERE status = 'released'
+        ORDER BY created_at DESC 
+        `);
+        
+        console.log(`✅ /media/new returning ${media.length} items`);
+        
+        res.json({
+        success: true,
+        data: media
+        });
+    } catch (error) {
+        console.error('❌ Error fetching new media:', error);
+        res.status(500).json({ 
+        success: false,
+        error: 'Database error: ' + error.message
+        });
+    }
+}
+
+exports.getComingSoonMedia = async (req, res) => {
+ try {
+    
+    const [media] = await pool.execute(`
+      SELECT 
+        media_id,
+        title,
+        poster_url,
+        release_year,
+        type,
+        age_rating
+        duration,  
+        description   
+      FROM media 
+		  WHERE status = 'coming_soon'
+      ORDER BY created_at DESC 
+    `);
+    
+    console.log(`✅ / media/new returning ${media.length} items`);
+    
+    res.json({
+      success: true,
+      data: media
+    });
+  } catch (error) {
+    console.error('❌ Error fetching new media:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Database error: ' + error.message
+    });
+  }
+}
+
+exports.getPopularMedia = async (req, res) => {
+    try {
+        
+        const [media] = await pool.execute(`
+        SELECT 
+            media_id,
+            title,
+            poster_url,
+            release_year,
+            type,
+            age_rating,
+            imdb_rating,
+            kinopoisk_rating,
+            duration,  
+            description   
+        FROM media 
+        ORDER BY COALESCE(imdb_rating, kinopoisk_rating) DESC
+        LIMIT 9
+        `);
+        
+        console.log(`✅ /media/popular returning ${media.length} items`);
+        
+        res.json({
+        success: true,
+        data: media
+        });
+    } catch (error) {
+        console.error('❌ Error fetching popular media:', error);
+        res.status(500).json({ 
+        success: false,
+        error: 'Database error: ' + error.message
+        });
+    }
+}
+
+exports.getMediaByGenre = async (req, res) => {
+    try {
+        const { genreName } = req.params;
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        
+        console.log(`📡 /media/genre/${genreName} called, limit: ${limit}, offset: ${offset}`);
+        
+        const [media] = await pool.execute(`
+        SELECT 
+            m.media_id,
+            m.title,
+            m.original_title,
+            m.type,
+            m.release_year,
+            m.age_rating,
+            m.duration,
+            m.total_seasons,
+            m.poster_url,
+            m.imdb_rating,
+            m.kinopoisk_rating,
+            m.description,
+            GROUP_CONCAT(DISTINCT g.name) as genres
+        FROM media m
+        JOIN media_genres mg ON m.media_id = mg.media_id
+        JOIN genres g ON mg.genre_id = g.genre_id
+        WHERE g.slug = ?
+        GROUP BY m.media_id
+        ORDER BY 
+            m.release_year DESC,
+            m.imdb_rating DESC
+        LIMIT ? OFFSET ?
+        `, [genreName, limit.toString(), offset.toString()]); 
+        
+        console.log(`✅ Found ${media.length} items for slug: ${genreName}`);
+        
+        const formattedMedia = media.map(item => ({
+        ...item,
+        genres: item.genres ? item.genres.split(',') : [],
+        total_seasons: item.total_seasons || null,
+        duration: item.duration || 0
+        }));
+        
+        res.json({
+        success: true,
+        data: formattedMedia,
+        genre: genreName,
+        pagination: { limit, offset, total: formattedMedia.length }
+        });
+    } catch (error) {
+        console.error(`❌ Error fetching ${req.params.genreName} media:`, error);
+        res.status(500).json({ 
+        success: false,
+        error: 'Database error: ' + error.message
+        });
+    }
+}
+
