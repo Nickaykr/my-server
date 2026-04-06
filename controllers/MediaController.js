@@ -7,6 +7,23 @@ const getMediaById = async (req, res) => {
     const query = `
       SELECT 
         m.*,
+        st.name as studio_name,   
+        src.name as source_name,
+        sl.name AS status_name,
+        -- Источники для самого фильма 
+        (
+          SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'player_name', ms.player_name, 
+              'source_type', ms.source_type, 
+              'url', ms.url
+            )
+          )
+          FROM media_sources ms 
+          WHERE ms.media_id = m.media_id AND ms.episode_id IS NULL
+        ) AS main_sources,
+        
+        -- Сезоны и эпизоды
         (
           SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
@@ -21,12 +38,22 @@ const getMediaById = async (req, res) => {
                     'episode_id', e.episode_id,
                     'episode_number', e.episode_number,
                     'title', e.title,
-                    'video_url', e.video_url,
-                    'duration', e.duration
+                    'duration', e.duration,
+                    'sources', (
+                      SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                          'player_name', es.player_name, 
+                          'url', es.url
+                        )
+                      )
+                      FROM media_sources es 
+                      WHERE es.episode_id = e.episode_id
+                    )
                   )
                 )
                 FROM episodes e
                 WHERE e.season_id = s.season_id
+                
               )
             )
           )
@@ -34,6 +61,9 @@ const getMediaById = async (req, res) => {
           WHERE s.media_id = m.media_id
         ) AS seasons
       FROM media m
+      LEFT JOIN studios st ON m.studio_id = st.studio_id
+      LEFT JOIN sources src ON m.source_id = src.source_id
+      LEFT JOIN status_lookup sl ON m.status_id = sl.id 
       WHERE m.media_id = ?
     `;
 
@@ -45,16 +75,22 @@ const getMediaById = async (req, res) => {
 
     const media = rows[0];
 
-    if (media.seasons && typeof media.seasons === 'string') {
-      media.seasons = JSON.parse(media.seasons);
-    } else if (!media.seasons) {
-      media.seasons = []; 
-    }
+    // Парсим JSON, так как MySQL возвращает их как строки
+    const parseField = (field) => {
+      try {
+        return typeof field === 'string' ? JSON.parse(field) : field;
+      } catch (e) {
+        return field || [];
+      }
+    };
+
+    media.seasons = parseField(media.seasons) || [];
+    media.main_sources = parseField(media.main_sources) || [];
 
     res.json(media);
   } catch (error) {
     console.error("Ошибка в mediaController:", error);
-    res.status(500).json({ error: "Ошибка сервера при получении данных" });
+    res.status(500).json({ error: "Ошибка сервера" });
   }
 };
 

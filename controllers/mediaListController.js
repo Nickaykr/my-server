@@ -16,8 +16,6 @@ exports.getMediaList = async (req, res) => {
             duration,
             total_seasons,
             poster_url,
-            video_url,
-            trailer_url,
             imdb_rating,
             kinopoisk_rating,
             created_at,
@@ -66,68 +64,49 @@ exports.getMediaList = async (req, res) => {
     }
 }
 
-exports.getNewMedia = async (req, res) => {
+exports.getMediaByStatus = async (req, res) => {
     try {
-        const [media] = await pool.execute(`
-        SELECT 
-            media_id,
-            title,
-            poster_url,
-            release_year,
-            type,
-            age_rating
-        FROM media 
-            WHERE status = 'released'
-        ORDER BY created_at DESC 
-        `);
-        
-        console.log(`✅ /media/new returning ${media.length} items`);
-        
+        const { status = 'release', limit = 10 } = req.query;
+
+        const queryStatus = String(status);
+        const queryLimit = parseInt(limit, 10);
+
+        const query = `
+            SELECT 
+                m.media_id,
+                title,
+                poster_url,
+                release_year,
+                type,
+                age_rating,
+                imdb_rating,
+                kinopoisk_rating,
+                duration,
+                description,
+                sl.name AS status_name
+            FROM media m
+            LEFT JOIN status_lookup sl ON m.status_id = sl.id 
+            WHERE sl.slug_name = ? 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        `;
+
+        // Передаем параметры в массив, чтобы избежать SQL-инъекций
+        const [media] = await pool.query(query, [queryStatus, queryLimit]);
+        console.log(`✅ /media?status=${status} returning ${media.length} items`);
+
         res.json({
-        success: true,
-        data: media
+            success: true,
+            data: media
         });
     } catch (error) {
-        console.error('❌ Error fetching new media:', error);
+        console.error('❌ Error fetching media by status:', error);
         res.status(500).json({ 
-        success: false,
-        error: 'Database error: ' + error.message
+            success: false,
+            error: 'Database error: ' + error.message
         });
     }
-}
-
-exports.getComingSoonMedia = async (req, res) => {
- try {
-    
-    const [media] = await pool.execute(`
-      SELECT 
-        media_id,
-        title,
-        poster_url,
-        release_year,
-        type,
-        age_rating
-        duration,  
-        description   
-      FROM media 
-		  WHERE status = 'coming_soon'
-      ORDER BY created_at DESC 
-    `);
-    
-    console.log(`✅ / media/new returning ${media.length} items`);
-    
-    res.json({
-      success: true,
-      data: media
-    });
-  } catch (error) {
-    console.error('❌ Error fetching new media:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Database error: ' + error.message
-    });
-  }
-}
+};
 
 exports.getPopularMedia = async (req, res) => {
     try {
