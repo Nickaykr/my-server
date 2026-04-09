@@ -4,90 +4,80 @@ const getMediaById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const query = `
-      SELECT 
-        m.*,
-        st.name as studio_name,   
-        src.name as source_name,
-        sl.name AS status_name,
-        -- Источники для самого фильма 
-        (
-          SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-              'player_name', ms.player_name, 
-              'source_type', ms.source_type, 
-              'url', ms.url
-            )
-          )
-          FROM media_sources ms 
-          WHERE ms.media_id = m.media_id AND ms.episode_id IS NULL
-        ) AS main_sources,
-        
-        -- Сезоны и эпизоды
-        (
-          SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-              'season_id', s.season_id,
-              'season_number', s.season_number,
-              'title', s.title,
-              'description', s.description,
-              'poster_url', s.poster_url,
-              'episodes', (
-                SELECT JSON_ARRAYAGG(
-                  JSON_OBJECT(
-                    'episode_id', e.episode_id,
-                    'episode_number', e.episode_number,
-                    'title', e.title,
-                    'duration', e.duration,
-                    'sources', (
-                      SELECT JSON_ARRAYAGG(
-                        JSON_OBJECT(
-                          'player_name', es.player_name, 
-                          'url', es.url
-                        )
-                      )
-                      FROM media_sources es 
-                      WHERE es.episode_id = e.episode_id
-                    )
-                  )
-                )
-                FROM episodes e
-                WHERE e.season_id = s.season_id
-                
-              )
-            )
-          )
-          FROM seasons s
-          WHERE s.media_id = m.media_id
-        ) AS seasons
+    //Основная информация 
+    const [mediaRows] = await pool.query(`
+      SELECT m.*, st.name as studio_name, src.name as source_name, sl.name AS status_name
       FROM media m
       LEFT JOIN studios st ON m.studio_id = st.studio_id
       LEFT JOIN sources src ON m.source_id = src.source_id
-      LEFT JOIN status_lookup sl ON m.status_id = sl.id 
+      LEFT JOIN seasons s ON m.media_id = s.media_id
+      LEFT JOIN status_lookup sl ON s.status_id = sl.id 
       WHERE m.media_id = ?
-    `;
+    `, [id]);
 
-    const [rows] = await pool.query(query, [id]);
-
-    if (rows.length === 0) {
+    if (mediaRows.length === 0) {
       return res.status(404).json({ message: "Медиа не найдено" });
     }
 
-    const media = rows[0];
+    const media = mediaRows[0];
 
-    // Парсим JSON, так как MySQL возвращает их как строки
-    const parseField = (field) => {
-      try {
-        return typeof field === 'string' ? JSON.parse(field) : field;
-      } catch (e) {
-        return field || [];
+    //Параллельно запрашиваем все связанные данные
+    const [
+      genresResponse, 
+      // peopleResponse, 
+      extrasResponse, 
+      seasonsResponse
+    ] = await Promise.all([
+      pool.query(`
+        SELECT g.name 
+        FROM media_genres mg 
+        JOIN genres g ON mg.genre_id = g.genre_id
+        WHERE mg.media_id = ?`, [id]),
+      // pool.query(`
+      //   SELECT p.full_name, p.photo_url, mp.role_name 
+      //   FROM media_people mp 
+      //   JOIN people p ON mp.person_id = p.person_id 
+      //   WHERE mp.media_id = ?`, [id]),
+      pool.query(`
+        SELECT me.url, tt.name as type_name 
+        FROM media_extras me
+        JOIN target_type tt ON me.type_id = tt.ID
+        WHERE me.media_id = ?`, [id]),
+      pool.query(`
+        SELECT * 
+        FROM seasons 
+        WHERE media_id = ? 
+        ORDER BY season_number`, [id])
+    ]);
+
+    //Собираем всё в один объект
+    media.genres = genresResponse[0].map(g => g.name) || [];
+    // media.cast = peopleResponse[0] || [];
+    media.extras = extrasResponse[0] || [];
+    const seasons = seasonsResponse[0] || [];
+    
+    //Для сериалов подтягиваем эпизоды
+    if (media.type === 'tv_series' || seasons.length > 0) {
+      // Чтобы не делать N запросов в цикле, берем все эпизоды для всех сезонов сразу
+      const seasonIds = seasons.map(s => s.season_id);
+      if (seasonIds.length > 0) {
+        const [episodes] = await pool.query(
+          'SELECT * FROM episodes WHERE season_id IN (?) ORDER BY episode_number', 
+          [seasonIds]
+        );
+        
+        // Распределяем эпизоды по сезонам
+        media.seasons = seasons.map(s => ({
+          ...s,
+          episodes: episodes.filter(e => e.season_id === s.season_id)
+        }));
+      } else {
+        media.seasons = [];
       }
-    };
-
-    media.seasons = parseField(media.seasons) || [];
-    media.main_sources = parseField(media.main_sources) || [];
+    }
 
     res.json(media);
+
   } catch (error) {
     console.error("Ошибка в mediaController:", error);
     res.status(500).json({ error: "Ошибка сервера" });
