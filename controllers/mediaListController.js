@@ -8,20 +8,21 @@ exports.getMediaList = async (req, res) => {
             SELECT 
                 s.season_id,
                 m.media_id,
-                s.title,
+                m.title AS main_title,       
+                s.title AS season_title,
                 m.original_title,
                 s.description,
                 m.type,
                 s.release_year,
                 s.age_rating,
                 s.duration,
-                s.total_seasons,
+                m.total_seasons,
                 s.poster_url,
                 s.imdb_rating,
                 s.kinopoisk_rating,
                 m.created_at,
                 m.updated_at,
-                s.is_animation 
+                m.is_animation 
             FROM media m
             JOIN seasons s ON m.media_id = s.media_id
             WHERE 1=1
@@ -51,13 +52,13 @@ exports.getMediaList = async (req, res) => {
         const [media] = await pool.query(query, params);
         
         res.json({
-        success: true,
-        data: media,
-        pagination: {
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            total: media.length
-        }
+            success: true,
+            data: media,
+            pagination: {
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                total: media.length
+            }
         });
 
     } catch (error) {
@@ -75,8 +76,10 @@ exports.getMediaByStatus = async (req, res) => {
 
         const query = `
             SELECT 
+                s.season_id,
                 m.media_id,
-                s.title,
+                m.title AS main_title,        
+                s.title AS season_title,
                 s.poster_url,
                 s.release_year,
                 m.type,
@@ -118,7 +121,8 @@ exports.getPopularMedia = async (req, res) => {
             SELECT 
                 s.season_id,
                 m.media_id,
-                s.title,
+                m.title AS main_title,       
+                s.title AS season_title,
                 s.poster_url,
                 s.release_year,
                 m.type,
@@ -158,8 +162,10 @@ exports.getMediaByGenre = async (req, res) => {
         
         const [media] = await pool.execute(`
             SELECT 
+                s.season_id,
                 m.media_id,
-                s.title,
+                m.title AS main_title,        
+                s.title AS season_title,
                 m.original_title,
                 m.type,
                 s.release_year,

@@ -6,13 +6,30 @@ const getMediaById = async (req, res) => {
 
     //Основная информация 
     const [mediaRows] = await pool.query(`
-      SELECT m.*, st.name as studio_name, src.name as source_name, sl.name AS status_name
+      SELECT
+        s.season_id,
+        m.media_id,
+        m.title AS main_title,       
+        s.title AS season_title,
+        m.original_title,
+        m.type,
+        s.release_year,
+        s.age_rating,
+        s.duration,
+        m.total_seasons,
+        s.poster_url,
+        s.imdb_rating,
+        s.kinopoisk_rating,
+        s.description, 
+        st.name as studio_name,   
+        src.name as source_name, 
+        sl.name AS status_name
       FROM media m
       LEFT JOIN studios st ON m.studio_id = st.studio_id
       LEFT JOIN sources src ON m.source_id = src.source_id
       LEFT JOIN seasons s ON m.media_id = s.media_id
       LEFT JOIN status_lookup sl ON s.status_id = sl.id 
-      WHERE m.media_id = ?
+      WHERE s.season_id = ?
     `, [id]);
 
     if (mediaRows.length === 0) {
@@ -20,6 +37,7 @@ const getMediaById = async (req, res) => {
     }
 
     const media = mediaRows[0];
+    const actualMediaId = media.media_id; //
 
     //Параллельно запрашиваем все связанные данные
     const [
@@ -32,7 +50,7 @@ const getMediaById = async (req, res) => {
         SELECT g.name 
         FROM media_genres mg 
         JOIN genres g ON mg.genre_id = g.genre_id
-        WHERE mg.media_id = ?`, [id]),
+        WHERE mg.media_id = ?`, [actualMediaId]),
       // pool.query(`
       //   SELECT p.full_name, p.photo_url, mp.role_name 
       //   FROM media_people mp 
@@ -42,12 +60,12 @@ const getMediaById = async (req, res) => {
         SELECT me.url, tt.name as type_name 
         FROM media_extras me
         JOIN target_type tt ON me.type_id = tt.ID
-        WHERE me.media_id = ?`, [id]),
+        WHERE me.media_id = ?`, [actualMediaId]),
       pool.query(`
         SELECT * 
         FROM seasons 
         WHERE media_id = ? 
-        ORDER BY season_number`, [id])
+        ORDER BY season_number`, [actualMediaId])
     ]);
 
     //Собираем всё в один объект
