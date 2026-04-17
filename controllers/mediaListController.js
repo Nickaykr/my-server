@@ -213,3 +213,20 @@ exports.getMediaByGenre = async (req, res) => {
     }
 }
 
+exports.setRating = async (req, res) => {
+  try {
+    const { season_id, rating } = req.body;
+    const userId = req.user.user_id; 
+
+    await pool.query(`
+      INSERT INTO ratings (user_id, season_id, rating, created_at) 
+      VALUES (?, ?, ?, NOW()) 
+      ON DUPLICATE KEY UPDATE rating = VALUES(rating)
+    `, [userId, season_id, rating]);;
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+};
+
