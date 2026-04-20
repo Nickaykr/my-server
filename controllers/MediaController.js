@@ -45,7 +45,8 @@ const getMediaById = async (req, res) => {
       peopleResponse, 
       extrasResponse, 
       ratingsResponse,
-      userRatingResponse
+      userRatingResponse,
+      pleerResponse
     ] = await Promise.all([
       pool.query(`
         SELECT g.name 
@@ -62,7 +63,7 @@ const getMediaById = async (req, res) => {
         SELECT me.url, tt.name as type_name 
         FROM media_extras me
         JOIN target_type tt ON me.type_id = tt.ID
-        WHERE me.season_id = ?`, [actualMediaId]),
+        WHERE me.season_id = ?`, [id]),
       pool.query(`
         SELECT 
           ROUND(AVG(rating), 1) as average_rating, 
@@ -73,7 +74,14 @@ const getMediaById = async (req, res) => {
         SELECT 
           rating 
         FROM ratings 
-        WHERE season_id = ? AND user_id = ?`, [id, req.user.user_id])
+        WHERE season_id = ? AND user_id = ?`, [id, req.user.user_id]),
+      pool.query(`
+        SELECT 
+          ms.url, ms.is_active, tt.name as type_name, p.name AS player_name
+        FROM media_sources ms
+        JOIN target_type tt ON ms.target_type_id = tt.ID
+        JOIN pleer_name p ON ms.player_id = p.id
+        WHERE ms.seasons_id = ? AND ms.is_active = 1`, [id])
     ]);
 
     media.genres = genresResponse[0].map(g => g.name);
@@ -82,6 +90,7 @@ const getMediaById = async (req, res) => {
     media.average_rating = ratingsResponse[0][0].average_rating || 0;
     media.total_votes = ratingsResponse[0][0].total_votes || 0;
     media.user_rating = userRatingResponse[0][0]?.rating || 0; 
+    media.video = pleerResponse[0]; 
 
     res.json(media);
 
