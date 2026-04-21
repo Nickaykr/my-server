@@ -1,6 +1,6 @@
-const { pool } = require('../config/database');
+import { pool } from '../config/database.js';
 
-exports.addComment = async (req, res) => {
+export async function addComment(req, res) {
     try {
         const { season_id, user_id, text, is_spoiler } = req.body;
 
@@ -34,9 +34,9 @@ exports.addComment = async (req, res) => {
         console.error(error);
         res.status(500).json({ success: false, message: 'Ошибка сервера' });
     }
-};
+}
 
-exports.getMediaComments = async (req, res) => {
+export async function getMediaComments(req, res) {
     try {
         const { id } = req.params;
         

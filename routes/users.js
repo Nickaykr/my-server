@@ -1,7 +1,7 @@
-const express = require('express');
-const { auth } = require('../middleware/auth');
+import { Router } from 'express';
+import  { auth } from '../middleware/auth.js';
 
-const router = express.Router();
+const router = Router();
 
 // Получение профиля пользователя
 router.get('/profile', auth, async (req, res) => {
@@ -57,4 +57,4 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

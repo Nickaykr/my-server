@@ -1,9 +1,10 @@
-require('dotenv').config();
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+import 'dotenv/config';
+import { Router } from 'express';
+import jwt from 'jsonwebtoken';
+import { create, updateLastLogin, findByEmail, comparePassword, getDeviceLimit, findById } from '../models/user.js';
+import { upsertSession, getCountByUserId, findByDeviceId, findByToken, updateToken, deleteSession } from '../models/session.js';
 
-const router = express.Router();
+const router = Router();
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
@@ -22,10 +23,10 @@ const generateTokens = (user) => {
 // Регистрация
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, username, date_of_birth, country } = req.body;
+    const { email, password, username, date_of_birth, country, device_id } = req.body;
 
     // Создаем пользователя через модель
-    const user = await User.create({
+    const user = await create({
       email,
       password,
       username,
@@ -37,8 +38,8 @@ router.post('/register', async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
     
     // Сохраняем refresh token в базе
-    await User.updateRefreshToken(user.user_id, refreshToken);
-    await User.updateLastLogin(user.user_id);
+    await upsertSession(user.user_id, device_id, refreshToken);
+    await updateLastLogin(user.user_id);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -62,26 +63,49 @@ router.post('/register', async (req, res) => {
 // Логин
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, device_id } = req.body; 
+
+    if (!device_id) {
+      return res.status(400).json({ error: 'Device ID is required' });
+    }
 
     // Ищем пользователя 
-    const user = await User.findByEmail(email);
+    const user = await findByEmail(email);
   
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
+
     // Проверяем пароль 
-    const isPasswordValid = await User.comparePassword(password, user.password_hash);
+    const isPasswordValid = await comparePassword(password, user.password_hash);
     
     if (!isPasswordValid) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
+    // Проверяем, сколько устройств уже залогинено
+    const activeSessions = await getCountByUserId(user.user_id);
+    const currentDeviceSession = await findByDeviceId(user.user_id, device_id);
+
+    const deviceLimit = await getDeviceLimit(user.user_id);
+
+    // Если лимит 1 (бесплатный)
+    const isFreeTier = deviceLimit === 1;
+
+    if (!currentDeviceSession && activeSessions >= deviceLimit) {
+      return res.status(403).json({ 
+        error: 'Limit reached', 
+        message: isFreeTier 
+          ? "На этом аккаунте нету активной подписки, обновите или приобретите подписку" 
+          : `Вы достигли лимита устройств для вашего тарифа (${deviceLimit}).` 
+      });
+    }
+
     const { accessToken, refreshToken } = generateTokens(user);
     
-    await User.updateRefreshToken(user.user_id, refreshToken);
-    await User.updateLastLogin(user.user_id);
+    await upsertSession(user.user_id, device_id, refreshToken);
+    await updateLastLogin(user.user_id);
 
     console.log('✅ Login successful for:', user.email);
 
@@ -107,24 +131,32 @@ router.post('/refresh', async (req, res) => {
   if (!refreshToken) return res.status(401).send();
 
   try {
+    // Проверяем валидность JWT
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.userId);
+    const session = await findByToken(refreshToken);
     
-    if (!user || user.refresh_token !== refreshToken) {
-      console.log('❌ Refresh token mismatch or user not found');
+    if (!session || session.user_id !== decoded.userId) {
+      console.log('❌ Refresh token not found in sessions or user mismatch');
       return res.status(403).json({ error: 'Session expired or invalid' });
     }
+
+    //Получаем данные пользователя для генерации новых токенов
+    const user = await findById(session.user_id);
+    if (!user) return res.status(403).send();
 
     // Генерируем новую пару
     const tokens = generateTokens(user);
     
-    await User.updateRefreshToken(user.user_id, tokens.refreshToken);
+    // ОБНОВЛЯЕМ ТОКЕН ТОЛЬКО ДЛЯ ЭТОЙ СЕССИИ
+    // Мы передаем session.id или (user_id + device_id), чтобы обновить конкретную строку
+    await updateToken(session.id, tokens.refreshToken);
 
     res.json({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken
     });
   } catch (e) {
+    console.error('Refresh error:', e);
     res.status(403).send();
   }
 });
@@ -134,20 +166,19 @@ router.post('/logout', async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
-    if (refreshToken) {
-      try {
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        await User.clearRefreshToken(decoded.userId);
-      } catch (error) {
-        console.log('Token already invalid during logout');
-      }
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token is required' });
     }
 
+    await deleteSession(refreshToken);
+
+    console.log('✅ Session cleared successfully');
     res.json({ message: 'Logout successful' });
+
   } catch (error) {
     console.error('❌ Logout error:', error);
+    // Даже если произошла ошибка, для клиента выход считается успешным
     res.status(500).json({ error: 'Server error during logout' });
-  }
-});
+}});
 
-module.exports = router;
+export default router;

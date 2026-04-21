@@ -1,14 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const { getMediaById } = require('../controllers/MediaController');
-const mediaController = require('../controllers/mediaListController'); 
-const { auth } = require('../middleware/auth');
+import { Router } from 'express';
+const router = Router();
+import mediaController from '../controllers/MediaController.js';
+import { getMediaList, getMediaByStatus, getPopularMedia, getMediaByGenre, setRating } from '../controllers/mediaListController.js'; 
+import { auth } from '../middleware/auth.js';
 
-router.get('/', mediaController.getMediaList);
-router.get('/filter', mediaController.getMediaByStatus);
-router.get('/popular', mediaController.getPopularMedia);
-router.get('/genre/:genreName', mediaController.getMediaByGenre);
-router.get('/:id', auth, getMediaById); 
-router.post('/rate', auth, mediaController.setRating);
+router.get('/', getMediaList);
+router.get('/filter', getMediaByStatus);
+router.get('/popular', getPopularMedia);
+router.get('/genre/:genreName', getMediaByGenre);
+router.get('/:id', auth, mediaController.getMediaById); 
+router.post('/rate', auth, setRating);
 
-module.exports = router;
+export default router;

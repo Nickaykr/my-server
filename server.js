@@ -1,24 +1,27 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
+import 'dotenv/config';
+const __dirname = import.meta.dirname;
+import express, { json, static as expressStatic } from 'express';
+import cors from 'cors';
+import { join } from 'path';
 
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const apiRoutes = require('./routes/api'); 
-const mediaRoutes = require('./routes/media');
-const cinemaRoutes = require('./routes/cinemaRoutes');
-const commentRoutes = require('./routes/comments');
-const { auth } = require('./middleware/auth'); 
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import apiRoutes from './routes/api.js'; 
+import mediaRoutes from './routes/media.js';
+import cinemaRoutes from './routes/cinemaRoutes.js';
+import commentRoutes from './routes/comments.js';
+import { auth } from './middleware/auth.js'; 
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(json());
 
-app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use('/public', expressStatic(join(__dirname, 'public')));
 
 app.use((req, res, next) => {
   console.log('📍', new Date().toISOString(), req.method, req.url);

@@ -1,6 +1,6 @@
-const { pool } = require('../config/database');
+import { pool } from '../config/database.js';
 
-exports.getMediaList = async (req, res) => {
+export async function getMediaList(req, res) {
     try {
         const { type, limit = 20, offset = 0, search, is_animation } = req.query;
         
@@ -67,7 +67,7 @@ exports.getMediaList = async (req, res) => {
     }
 }
 
-exports.getMediaByStatus = async (req, res) => {
+export async function getMediaByStatus(req, res) {
     try {
         const { status = 'release', limit = 10 } = req.query;
 
@@ -112,9 +112,9 @@ exports.getMediaByStatus = async (req, res) => {
             error: 'Database error: ' + error.message
         });
     }
-};
+}
 
-exports.getPopularMedia = async (req, res) => {
+export async function getPopularMedia(req, res) {
     try {
         
         const [media] = await pool.execute(`
@@ -152,7 +152,7 @@ exports.getPopularMedia = async (req, res) => {
     }
 }
 
-exports.getMediaByGenre = async (req, res) => {
+export async function getMediaByGenre(req, res) {
     try {
         const { genreName } = req.params;
         const limit = parseInt(req.query.limit) || 50;
@@ -213,7 +213,7 @@ exports.getMediaByGenre = async (req, res) => {
     }
 }
 
-exports.setRating = async (req, res) => {
+export async function setRating(req, res) {
   try {
     const { season_id, rating } = req.body;
     const userId = req.user.user_id; 
@@ -228,5 +228,5 @@ exports.setRating = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Ошибка сервера" });
   }
-};
+}
 

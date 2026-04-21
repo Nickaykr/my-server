@@ -1,6 +1,6 @@
-const express = require('express');
-const router = express.Router();
-const { pool } = require('../config/database');
+import { Router } from 'express';
+const router = Router();
+import { pool } from '../config/database.js';
 
 // Health check endpoint
 router.get('/health', async (req, res) => {
@@ -21,4 +21,4 @@ router.get('/health', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

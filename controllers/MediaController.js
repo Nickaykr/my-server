@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+import { pool } from '../config/database.js';
 
 const getMediaById = async (req, res) => {
   try {
@@ -100,6 +100,6 @@ const getMediaById = async (req, res) => {
   }
 };
 
-module.exports = {
+export default {
   getMediaById
 };

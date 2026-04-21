@@ -1,6 +1,6 @@
-const { pool } = require('../config/database');
+import { pool } from '../config/database.js';
 
-exports.getCinemaClubs = async (req, res) => {
+export async function getCinemaClubs(req, res) {
   try {
     const { type, limit = 10 } = req.query;
     
@@ -65,9 +65,9 @@ exports.getCinemaClubs = async (req, res) => {
       res.status(500).json({ success: false, error: error.message });
     }
   }
-};
+}
 
-exports.getClubById = async (req, res) => {
+export async function getClubById(req, res) {
   try{
     const { id } = req.params;
     
@@ -93,4 +93,4 @@ exports.getClubById = async (req, res) => {
     console.error('Error fetching cinema club:', error);
     res.status(500).json({ success: false, error: error.message });
   }
-};
+}

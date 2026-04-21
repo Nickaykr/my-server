@@ -1,8 +1,8 @@
-require('dotenv').config();
-const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
+import { findById } from '../models/user.js';
 
-const auth = async (req, res, next) => {
+export const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
@@ -18,7 +18,7 @@ const auth = async (req, res, next) => {
        return res.status(401).json({ error: 'Невалидный токен: отсутствует ID пользователя' });
     }
 
-    const user = await User.findById(decoded.userId); 
+    const user = await findById(decoded.userId); 
     
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден.' });
@@ -34,5 +34,3 @@ const auth = async (req, res, next) => {
     res.status(401).json({ error: 'Ошибка авторизации' });
   }
 };
-
-module.exports = { auth };

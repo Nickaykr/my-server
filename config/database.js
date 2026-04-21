@@ -1,5 +1,5 @@
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+import 'dotenv/config';
+import { createPool } from 'mysql2/promise';
 
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -13,7 +13,7 @@ const dbConfig = {
 };
 
 // Создаем пул соединений
-const pool = mysql.createPool(dbConfig);
+const pool = createPool(dbConfig);
 
 // Функция для проверки подключения
 async function testConnection() {
@@ -30,7 +30,7 @@ async function testConnection() {
 }
 
 // Экспортируем пул и функцию для тестирования
-module.exports = {
+export {
   pool,
   testConnection
 };

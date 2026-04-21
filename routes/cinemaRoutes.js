@@ -1,8 +1,8 @@
-const express = require('express');
-const router = express.Router();
-const cinemaController = require('../controllers/cinemaClubs');
+import { Router } from 'express';
+const router = Router();
+import { getCinemaClubs, getClubById } from '../controllers/cinemaClubs.js';
 
-router.get('/', cinemaController.getCinemaClubs);
-router.get('/:id', cinemaController.getClubById);
+router.get('/', getCinemaClubs);
+router.get('/:id', getClubById);
 
-module.exports = router;
+export default router;
