@@ -17,15 +17,20 @@ export const findByDeviceId = async (userId, deviceId) => {
     return rows.length > 0 ? rows[0] : null;
 }
 
-export const upsertSession = async (userId, deviceId, refreshToken) => {
+export const upsertSession = async (userId, clientSessionId, refreshToken, deviceName) => {
+    // Если клиент прислал ID — используем его, если нет — создаем новый "паспорт"
+    const finalSessionId = clientSessionId || uuidv4();
     try {
         const query = `
-            INSERT INTO user_sessions (user_id, device_id, refresh_token)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE refresh_token = VALUES(refresh_token), last_active = NOW()
+            INSERT INTO user_sessions (user_id, device_id, refresh_token, device_name)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+                refresh_token = VALUES(refresh_token), 
+                last_login = NOW()
         `;
-        await pool.execute(query, [userId, deviceId, refreshToken]);
-        return true;
+        await pool.execute(query, [userId, finalSessionId, refreshToken, deviceName]);
+        
+        return finalSessionId;
     } catch (error) {
         console.error('Error in upsertSession:', error);
         throw error;
@@ -44,7 +49,7 @@ export const findByToken = async (token) => {
 // Обновление токена для конкретной сессии
 export const updateToken = async (sessionId, newToken) => {
     await pool.execute(
-        'UPDATE user_sessions SET refresh_token = ?, last_active = NOW() WHERE id = ?',
+        'UPDATE user_sessions SET refresh_token = ?, last_login = NOW() WHERE sessions_id = ?',
         [newToken, sessionId]
     );
 }
@@ -65,10 +70,10 @@ export const deleteSession = async (token) => {
 
 export const getDeviceLimit = async (userId) => {
     const query = `
-        SELECT IFNULL(sp.max_devices, 1) as device_limit
+        SELECT IFNULL(sp.max_device, 1) as device_limit
         FROM users u
         LEFT JOIN user_subscriptions us ON u.user_id = us.user_id AND us.is_active = 1 AND us.end_date > NOW()
-        LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
+        LEFT JOIN subscription_plans sp ON us.plan_id = sp.subscription_plans_id
         WHERE u.user_id = ?;
     `;
     

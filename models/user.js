@@ -32,10 +32,10 @@ export const findById = async (user_id) => {
 
 export const getDeviceLimit = async (userId) => {
   const query = `
-    SELECT IFNULL(sp.max_devices, 1) as device_limit
+    SELECT IFNULL(sp.max_device, 1) as device_limit
     FROM users u
     LEFT JOIN user_subscriptions us ON u.user_id = us.user_id AND us.is_active = 1 AND us.end_date > NOW()
-    LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
+    LEFT JOIN subscription_plans sp ON us.plan_id = sp.subscription_plans_id
     WHERE u.user_id = ?;
   `;
   

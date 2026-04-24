@@ -63,7 +63,7 @@ router.post('/register', async (req, res) => {
 // Логин
 router.post('/login', async (req, res) => {
   try {
-    const { email, password, device_id } = req.body; 
+    const { email, password, device_id, device_name } = req.body;
 
     if (!device_id) {
       return res.status(400).json({ error: 'Device ID is required' });
@@ -86,6 +86,7 @@ router.post('/login', async (req, res) => {
 
     // Проверяем, сколько устройств уже залогинено
     const activeSessions = await getCountByUserId(user.user_id);
+    console.log(`device_id`);
     const currentDeviceSession = await findByDeviceId(user.user_id, device_id);
 
     const deviceLimit = await getDeviceLimit(user.user_id);
@@ -104,7 +105,7 @@ router.post('/login', async (req, res) => {
 
     const { accessToken, refreshToken } = generateTokens(user);
     
-    await upsertSession(user.user_id, device_id, refreshToken);
+    await upsertSession(user.user_id, device_id, refreshToken, device_name);
     await updateLastLogin(user.user_id);
 
     console.log('✅ Login successful for:', user.email);
@@ -149,7 +150,7 @@ router.post('/refresh', async (req, res) => {
     
     // ОБНОВЛЯЕМ ТОКЕН ТОЛЬКО ДЛЯ ЭТОЙ СЕССИИ
     // Мы передаем session.id или (user_id + device_id), чтобы обновить конкретную строку
-    await updateToken(session.id, tokens.refreshToken);
+    await updateToken(session.sessions_id, tokens.refreshToken);
 
     res.json({
       accessToken: tokens.accessToken,
@@ -161,7 +162,7 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// 🚪 ВЫХОД
+//ВЫХОД
 router.post('/logout', async (req, res) => {
   try {
     const { refreshToken } = req.body;
