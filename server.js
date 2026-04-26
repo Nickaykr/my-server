@@ -10,6 +10,7 @@ import apiRoutes from './routes/api.js';
 import mediaRoutes from './routes/media.js';
 import cinemaRoutes from './routes/cinemaRoutes.js';
 import commentRoutes from './routes/comments.js';
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import { auth } from './middleware/auth.js'; 
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', auth, userRoutes); 
 app.use('/api', apiRoutes); 
 app.use('/api/comments', commentRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ 

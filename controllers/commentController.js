@@ -53,8 +53,6 @@ export async function getMediaComments(req, res) {
         const params = [id];
 
         const [comments] = await pool.query(query, params);
-
-        console.log(comments)
         
         res.json({
             success: true,

@@ -158,6 +158,10 @@ router.post('/refresh', async (req, res) => {
     });
   } catch (e) {
     console.error('Refresh error:', e);
+    if (refreshToken) {
+        await deleteSession(refreshToken); 
+        console.log("🗑️ Невалидная сессия удалена из БД");
+    }
     res.status(403).send();
   }
 });
