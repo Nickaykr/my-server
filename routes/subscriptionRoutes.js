@@ -62,6 +62,30 @@ router.post('/subscribe', auth, async (req, res) => {
     }
 });
 
+router.post('/validate', async (req, res) => {
+    const { code } = req.body;
+    console.log('Проверка промокода:', code);
+    
+    try {
+        const [promo] = await pool.query(
+            `SELECT * FROM promo_codes 
+             WHERE code = ? AND is_active = 1 
+             AND (expiration_date > NOW() OR expiration_date IS NULL)
+             AND current_uses < max_uses`, 
+            [code]
+        );
 
+        if (promo.length === 0) {
+            return res.status(404).json({ error: 'Промокод недействителен или истек' });
+        }
+
+        res.json({ 
+            success: true, 
+            percent: promo[0].discount_percent 
+        });
+    } catch (e) {
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
 
 export default router;
