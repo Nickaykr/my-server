@@ -13,7 +13,7 @@ router.get('/profile', auth, async (req, res) => {
         u.user_id, u.email, u.username, u.avatar_url, 
         u.date_of_birth, u.country, u.created_at, u.last_login,
         us.end_date as sub_end_date,
-        us.is_active as sub_is_active,
+        us.is_active as sub_is_active, us.plan_id as subscription_plans_id,
         sp.name as plan_name
       FROM users u
       LEFT JOIN user_subscriptions us ON u.user_id = us.user_id AND us.is_active = 1 AND us.end_date > CURRENT_TIMESTAMP
@@ -41,6 +41,7 @@ router.get('/profile', auth, async (req, res) => {
         last_login: userData.last_login,
         //поля подписки
         subscription: {
+          subscription_plans_id: userData.subscription_plans_id,
           plan: userData.plan_name || 'Free',
           endDate: userData.sub_end_date,
           isActive: Boolean(userData.sub_is_active && new Date(userData.sub_end_date) > new Date())

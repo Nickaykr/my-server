@@ -14,7 +14,6 @@ router.get('/plans', async (req, res) => {
   }
 });
 
-// POST /api/subscriptions/subscribe
 router.post('/subscribe', auth, async (req, res) => {
     const { subscription_plans_id }  = req.body;
     const userId = req.user.user_id;
@@ -22,8 +21,20 @@ router.post('/subscribe', auth, async (req, res) => {
 
     try {
       await connection.beginTransaction(); // Начинаем транзакцию для обеспечения атомарности
+
+      // Ищем текущую активную подписку
+      const [activeSubs] = await connection.query(
+          'SELECT end_date FROM user_subscriptions WHERE user_id = ? AND is_active = 1 AND end_date > NOW()',
+          [userId]
+      );
+
+      let startDate = new Date();
+      // Если подписка есть, новая начнется сразу после старой
+      if (activeSubs.length > 0) {
+          startDate = new Date(activeSubs[0].end_date);
+      }
       // Рассчитываем дату окончания
-      const endDate = new Date();
+      const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + 1);
 
       //Деактивируем всё старое
@@ -34,8 +45,8 @@ router.post('/subscribe', auth, async (req, res) => {
 
       // Создаем новую запись
       await connection.query(
-          'INSERT INTO user_subscriptions (user_id, plan_id, end_date, is_active) VALUES (?, ?, ?, 1)',
-          [userId, subscription_plans_id, endDate]
+          'INSERT INTO user_subscriptions (user_id, plan_id, start_date, end_date, is_active) VALUES (?, ?, ?, ?, 1)',
+          [userId, subscription_plans_id, startDate, endDate]
       );
 
       await connection.commit(); // Фиксируем транзакцию
@@ -50,5 +61,7 @@ router.post('/subscribe', auth, async (req, res) => {
       connection.release(); // Возвращаем соединение в пул
     }
 });
+
+
 
 export default router;
