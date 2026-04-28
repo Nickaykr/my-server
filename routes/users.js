@@ -10,7 +10,7 @@ router.get('/profile', auth, async (req, res) => {
     // Делаем запрос к БД, чтобы получить свежие данные и информацию о подписке
     const [rows] = await pool.query(`
       SELECT 
-        u.user_id, u.email, u.username, u.avatar_url, 
+        u.user_id, u.email, u.username, u.avatar_url, u.is_admin,
         u.date_of_birth, u.country, u.created_at, u.last_login,
         us.end_date as sub_end_date,
         us.is_active as sub_is_active, us.plan_id as subscription_plans_id,
@@ -35,10 +35,12 @@ router.get('/profile', auth, async (req, res) => {
         email: userData.email,
         username: userData.username,
         avatar_url: userData.avatar_url,
+        is_admin: userData.is_admin,
         date_of_birth: userData.date_of_birth,
         country: userData.country,
         created_at: userData.created_at,
         last_login: userData.last_login,
+
         //поля подписки
         subscription: {
           subscription_plans_id: userData.subscription_plans_id,

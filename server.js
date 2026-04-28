@@ -12,6 +12,7 @@ import cinemaRoutes from './routes/cinemaRoutes.js';
 import commentRoutes from './routes/comments.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import { auth } from './middleware/auth.js'; 
+import adminRoutes from './routes/adminRoutes.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -38,6 +39,7 @@ app.use('/api/users', auth, userRoutes);
 app.use('/api', apiRoutes); 
 app.use('/api/comments', commentRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/admin', adminRoutes); 
 
 app.get('/api/health', (req, res) => {
   res.json({ 

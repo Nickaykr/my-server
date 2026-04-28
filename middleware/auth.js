@@ -34,3 +34,15 @@ export const auth = async (req, res, next) => {
     res.status(401).json({ error: 'Ошибка авторизации' });
   }
 };
+
+export const isAdmin = (req, res, next) => {
+  // Так как основной auth уже отработал, в req.user лежат данные из БД
+  if (req.user && req.user.is_admin) {
+    next(); // Всё ок, пропускаем к контроллеру
+  } else {
+    console.warn(`[Security]: Попытка доступа к админке пользователем ${req.user?.user_id}`);
+    res.status(403).json({ 
+      error: 'Доступ запрещен. У вас недостаточно прав для выполнения этого действия.' 
+    });
+  }
+};

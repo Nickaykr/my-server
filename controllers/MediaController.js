@@ -4,6 +4,11 @@ const getMediaById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const { type } = req.query;
+
+    // Определяем колонку для поиска
+    const searchColumn = type === 'media' ? 'm.media_id' : 's.season_id';
+
     //Основная информация 
     const [mediaRows] = await pool.query(`
       SELECT
@@ -29,7 +34,7 @@ const getMediaById = async (req, res) => {
       LEFT JOIN seasons s ON m.media_id = s.media_id
       LEFT JOIN studios st ON s.studio_id = st.studio_id
       LEFT JOIN status_lookup sl ON s.status_id = sl.id 
-      WHERE s.season_id = ?
+      WHERE ${searchColumn} = ?
     `, [id]);
 
     if (mediaRows.length === 0) {
@@ -38,6 +43,7 @@ const getMediaById = async (req, res) => {
 
     const media = mediaRows[0];
     const actualMediaId = media.media_id; 
+    const actualSeasonId = media.season_id;
 
     //Параллельно запрашиваем все связанные данные
     const [
@@ -49,7 +55,7 @@ const getMediaById = async (req, res) => {
       pleerResponse
     ] = await Promise.all([
       pool.query(`
-        SELECT g.name 
+        SELECT g.name, g.genre_id
         FROM media_genres mg 
         JOIN genres g ON mg.genre_id = g.genre_id
         WHERE mg.media_id = ?`, [actualMediaId]),
@@ -58,33 +64,33 @@ const getMediaById = async (req, res) => {
         FROM media_people mp 
         JOIN people p ON mp.person_id = p.person_id 
         JOIN role r ON mp.role_id = r.role_id
-        WHERE mp.season_id = ?`, [id]),
+        WHERE mp.season_id = ?`, [actualSeasonId]),
       pool.query(`
         SELECT me.url, tt.name as type_name 
         FROM media_extras me
         JOIN target_type tt ON me.type_id = tt.ID
-        WHERE me.season_id = ?`, [id]),
+        WHERE me.season_id = ?`, [actualSeasonId]),
       pool.query(`
         SELECT 
           ROUND(AVG(rating), 1) as average_rating, 
           COUNT(ratings_id) as total_votes 
         FROM ratings 
-        WHERE season_id = ?`, [id]),
+        WHERE season_id = ?`, [actualSeasonId]),
       pool.query(`
         SELECT 
           rating 
         FROM ratings 
-        WHERE season_id = ? AND user_id = ?`, [id, req.user.user_id]),
+        WHERE season_id = ? AND user_id = ?`, [actualSeasonId, req.user.user_id]),
       pool.query(`
         SELECT 
           ms.url, ms.is_active, tt.name as type_name, p.name AS player_name
         FROM media_sources ms
         JOIN target_type tt ON ms.target_type_id = tt.ID
         JOIN pleer_name p ON ms.player_id = p.id
-        WHERE ms.seasons_id = ? AND ms.is_active = 1`, [id])
+        WHERE ms.seasons_id = ? AND ms.is_active = 1`, [actualSeasonId])
     ]);
 
-    media.genres = genresResponse[0].map(g => g.name);
+    media.genres = genresResponse[0];
     media.people = peopleResponse[0];
     media.extras = extrasResponse[0];
     media.average_rating = ratingsResponse[0][0].average_rating || 0;
