@@ -36,8 +36,9 @@ export const auth = async (req, res, next) => {
 };
 
 export const isAdmin = (req, res, next) => {
+  const allowedRoles = ['admin', 'manager'];
   // Так как основной auth уже отработал, в req.user лежат данные из БД
-  if (req.user && req.user.is_admin) {
+  if (req.user && allowedRoles.includes(req.user.role_name)) {
     next(); // Всё ок, пропускаем к контроллеру
   } else {
     console.warn(`[Security]: Попытка доступа к админке пользователем ${req.user?.user_id}`);

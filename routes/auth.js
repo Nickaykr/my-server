@@ -3,6 +3,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { create, updateLastLogin, findByEmail, comparePassword, getDeviceLimit, findById } from '../models/user.js';
 import { upsertSession, getCountByUserId, findByDeviceId, findByToken, updateToken, deleteSession } from '../models/session.js';
+import { pool } from '../config/database.js'; 
 
 const router = Router();
 
@@ -22,8 +23,10 @@ const generateTokens = (user) => {
 
 // Регистрация
 router.post('/register', async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { email, password, username, date_of_birth, country, device_id } = req.body;
+    await connection.beginTransaction();
+    const { email, password, username, date_of_birth, country, device_id, device_name } = req.body;
 
     // Создаем пользователя через модель
     const user = await create({
@@ -32,14 +35,22 @@ router.post('/register', async (req, res) => {
       username,
       date_of_birth,
       country
-    });
+    }, connection);
 
     // Генерируем токен
     const { accessToken, refreshToken } = generateTokens(user);
     
     // Сохраняем refresh token в базе
-    await upsertSession(user.user_id, device_id, refreshToken);
-    await updateLastLogin(user.user_id);
+    await upsertSession(
+        user.user_id, 
+        device_id, 
+        refreshToken, 
+        device_name || 'Unknown Device', 
+        connection                     
+    );
+    await updateLastLogin(user.user_id, connection);
+
+    await connection.commit();
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -55,8 +66,11 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
+    await connection.rollback();
     console.error('❌ Registration error:', error);
     res.status(500).json({ error: error.message || 'Server error during registration' });
+  } finally {
+    connection.release();
   }
 });
 

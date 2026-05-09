@@ -6,7 +6,10 @@ import { hash, compare } from 'bcryptjs';
 export const findByEmail = async (email) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT * FROM users WHERE email = ?',
+      `SELECT u.*, al.role_name 
+       FROM users u
+       LEFT JOIN user_access_levels al ON u.role_id = al.ID
+       WHERE u.email = ?`,
       [email]
     );
     return rows[0] || null;
@@ -20,7 +23,10 @@ export const findByEmail = async (email) => {
 export const findById = async (user_id) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT * FROM users WHERE user_id = ?',
+      `SELECT u.*, al.role_name 
+       FROM users u
+       LEFT JOIN user_access_levels al ON u.role_id = al.ID
+       WHERE u.user_id = ?`,
       [user_id]
     );
     return rows[0] || null;
@@ -50,13 +56,15 @@ export const create = async (userData) => {
     const { email, password, username, date_of_birth, country } = userData;
     
     // Проверка на уникальность email
-    const existingUser = await this.findByEmail(email);
+    const existingUser = await findByEmail(email);
     if (existingUser) {
       throw new Error('Пользователь с таким email уже существует');
     }
 
     // Хешируем пароль
     const password_hash = await hash(password, 12);
+
+    console.log('Creating user with data:', { email, password_hash, username, date_of_birth, country });
     
     const [result] = await pool.execute(
       'INSERT INTO users (email, password_hash, username, date_of_birth, country) VALUES (?, ?, ?, ?, ?)',
@@ -80,9 +88,10 @@ export const create = async (userData) => {
 }
 
 // Обновление времени последнего входа
-export const updateLastLogin = async (user_id) => {
+export const updateLastLogin = async (user_id, connection = null) => {
   try {
-    await pool.execute(
+    const db = connection || pool;
+    await db.execute(
       'UPDATE users SET last_login = NOW() WHERE user_id = ?',
       [user_id]
     );

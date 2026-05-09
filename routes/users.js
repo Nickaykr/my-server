@@ -10,12 +10,13 @@ router.get('/profile', auth, async (req, res) => {
     // Делаем запрос к БД, чтобы получить свежие данные и информацию о подписке
     const [rows] = await pool.query(`
       SELECT 
-        u.user_id, u.email, u.username, u.avatar_url, u.is_admin,
+        u.user_id, u.email, u.username, u.avatar_url, al.role_name,
         u.date_of_birth, u.country, u.created_at, u.last_login,
         us.end_date as sub_end_date,
         us.is_active as sub_is_active, us.plan_id as subscription_plans_id,
         sp.name as plan_name
       FROM users u
+      LEFT JOIN user_access_levels al ON u.role_id = al.ID
       LEFT JOIN user_subscriptions us ON u.user_id = us.user_id AND us.is_active = 1 AND us.end_date > CURRENT_TIMESTAMP
       LEFT JOIN subscription_plans sp ON us.plan_id = sp.subscription_plans_id
       WHERE u.user_id = ?
@@ -35,11 +36,11 @@ router.get('/profile', auth, async (req, res) => {
         email: userData.email,
         username: userData.username,
         avatar_url: userData.avatar_url,
-        is_admin: userData.is_admin,
         date_of_birth: userData.date_of_birth,
         country: userData.country,
         created_at: userData.created_at,
         last_login: userData.last_login,
+        role: userData.role_name,
 
         //поля подписки
         subscription: {

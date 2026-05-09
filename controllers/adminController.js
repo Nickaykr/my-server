@@ -121,12 +121,13 @@ export const getAllUsers = async (req, res) => {
                 u.username, 
                 u.email, 
                 u.avatar_url, 
-                u.is_admin,
+                ua.name AS role_name,
                 s.name AS sub_name,
                 us.end_date AS sub_endDate,
                 -- Проверяем активность: дата окончания больше текущей
                 (us.end_date > NOW()) AS sub_isActive 
             FROM users u
+            JOIN user_access_levels ua ON u.role_id = ua.ID
             LEFT JOIN (
                 -- Находим ID последней подписки для каждого юзера
                 SELECT user_id, MAX(user_subscriptions_id) as last_sub_id
@@ -142,7 +143,7 @@ export const getAllUsers = async (req, res) => {
             username: row.username,
             email: row.email,
             avatar_url: row.avatar_url,
-            is_admin: !!row.is_admin,
+            role_name: row.role_name,
             subscription: row.sub_name ? {
                 name: row.sub_name,
                 endDate: row.sub_endDate,

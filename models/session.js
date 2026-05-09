@@ -17,7 +17,8 @@ export const findByDeviceId = async (userId, deviceId) => {
     return rows.length > 0 ? rows[0] : null;
 }
 
-export const upsertSession = async (userId, clientSessionId, refreshToken, deviceName) => {
+export const upsertSession = async (userId, clientSessionId, refreshToken, deviceName, connection)=> {
+    const db = connection || pool;
     // Если клиент прислал ID — используем его, если нет — создаем новый "паспорт"
     const finalSessionId = clientSessionId || uuidv4();
     try {
@@ -28,7 +29,7 @@ export const upsertSession = async (userId, clientSessionId, refreshToken, devic
                 refresh_token = VALUES(refresh_token), 
                 last_login = NOW()
         `;
-        await pool.execute(query, [userId, finalSessionId, refreshToken, deviceName]);
+        await db.execute(query, [userId, finalSessionId, refreshToken, deviceName]);
         
         return finalSessionId;
     } catch (error) {
