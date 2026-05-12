@@ -36,7 +36,7 @@ export const auth = async (req, res, next) => {
 };
 
 export const isAdmin = (req, res, next) => {
-  const allowedRoles = ['admin', 'manager'];
+  const allowedRoles = ['Admin', 'Manager'];
   // Так как основной auth уже отработал, в req.user лежат данные из БД
   if (req.user && allowedRoles.includes(req.user.role_name)) {
     next(); // Всё ок, пропускаем к контроллеру

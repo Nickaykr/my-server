@@ -230,3 +230,38 @@ export async function setRating(req, res) {
   }
 }
 
+export async function searchMedia(req, res) {
+    const { search} = req.query;
+    const limit = parseInt(req.query.limit) || 5;
+
+    try {
+        // Поиск по названию 
+        let query = `
+           SELECT 
+                s.season_id , 
+                s.title AS season_title, 
+                s.poster_url AS season_poster,
+                m.title AS main_title,
+                m.media_id AS franchise_id
+            FROM seasons s
+            JOIN media m ON s.media_id = m.media_id
+        `;
+        
+        const params = [];
+        if (search) {
+            query += ` WHERE s.title LIKE ? OR m.title LIKE ? `;
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm);
+        }
+
+        query += ` LIMIT ?`;
+        params.push(limit);
+
+        const [rows] = await pool.query(query, params);
+        
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Search error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
