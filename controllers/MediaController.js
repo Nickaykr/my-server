@@ -22,6 +22,7 @@ export async function  getMediaById(req, res) {
         s.age_rating,
         s.duration,
         m.total_seasons,
+        s.episode_count,
         s.poster_url,
         s.imdb_rating,
         s.kinopoisk_rating,
@@ -92,12 +93,19 @@ export async function  getMediaById(req, res) {
         WHERE uml.season_id = ? AND uml.user_id = ?`, [actualSeasonId, req.user.user_id]),
       pool.query(`
         SELECT 
-          ms.url, ms.is_active, tt.name as type_name, p.name AS player_name
+          ms.url, 
+          ms.is_active, 
+          tt.name as type_name, 
+          p.name AS player_name,
+          e.episode_number -- ОБЯЗАТЕЛЬНО ДОБАВЛЯЕМ НОМЕР СЕРИИ ИЗ ТАБЛИЦЫ ЭПИЗОДОВ!
         FROM media_sources ms
         JOIN target_type tt ON ms.target_type_id = tt.ID
         JOIN pleer_name p ON ms.player_id = p.id
-        WHERE ms.seasons_id = ? AND ms.is_active = 1`, [actualSeasonId])
+        -- Привязываемся к таблице эпизодов (замени e.id и ms.episode_id на свои названия колонок связки)
+        JOIN episodes e ON ms.episode_id = e.episode_id 
+        WHERE ms.seasons_id = ? AND ms.is_active = 1;`, [actualSeasonId])
     ]);
+    
 
     media.genres = genresResponse[0];
     media.people = peopleResponse[0];
@@ -131,11 +139,19 @@ export async function postListUser (req, res) {
   const userId = req.user.user_id; 
 
   console.log(season_id, status_id, userId)
-  if (!season_id || !status_id) {
-    return res.status(400).json({ message: "Не все поля заполнены" });
+  if (!season_id || userId === undefined) {
+    return res.status(400).json({ message: "Не все поля заполнены (нужен сезон и юзер)" });
   }
   
   try {
+    if (status_id === null || status_id === 'clear') {
+      // Логика УДАЛЕНИЯ
+      const deleteQuery = `DELETE FROM user_media_lists WHERE user_id = ? AND season_id = ?`;
+      await pool.execute(deleteQuery, [userId, season_id]);
+      return res.json({ success: true, message: "Удалено из списка" });
+    }
+
+    // Логика СОХРАНЕНИЯ / ОБНОВЛЕНИЯ
     const query = `
       INSERT INTO user_media_lists (user_id, season_id, status_id, updated_at)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -148,6 +164,6 @@ export async function postListUser (req, res) {
     res.json({ success: true, message: "Список успешно обновлен" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Ошибка сервера при сохранении" });
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 }
