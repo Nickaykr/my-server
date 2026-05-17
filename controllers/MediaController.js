@@ -97,12 +97,13 @@ export async function  getMediaById(req, res) {
           ms.is_active, 
           tt.name as type_name, 
           p.name AS player_name,
-          e.episode_number -- ОБЯЗАТЕЛЬНО ДОБАВЛЯЕМ НОМЕР СЕРИИ ИЗ ТАБЛИЦЫ ЭПИЗОДОВ!
+          e.episode_number ,
+          e.title,
+          e.release_date
         FROM media_sources ms
         JOIN target_type tt ON ms.target_type_id = tt.ID
         JOIN pleer_name p ON ms.player_id = p.id
-        -- Привязываемся к таблице эпизодов (замени e.id и ms.episode_id на свои названия колонок связки)
-        JOIN episodes e ON ms.episode_id = e.episode_id 
+        LEFT JOIN episodes e ON ms.episode_id = e.episode_id 
         WHERE ms.seasons_id = ? AND ms.is_active = 1;`, [actualSeasonId])
     ]);
     
