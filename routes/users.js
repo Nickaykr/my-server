@@ -28,6 +28,14 @@ router.get('/profile', auth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const countQuery = `
+      SELECT status_id, COUNT(*) as count 
+      FROM user_media_lists 
+      WHERE user_id = ? 
+      GROUP BY status_id
+    `;
+    const [counts] = await pool.execute(countQuery, [req.user.user_id]);
+
     const userData = rows[0];
 
     res.json({ 
@@ -48,7 +56,8 @@ router.get('/profile', auth, async (req, res) => {
           plan: userData.plan_name || 'Free',
           endDate: userData.sub_end_date,
           isActive: Boolean(userData.sub_is_active && new Date(userData.sub_end_date) > new Date())
-        }
+        },
+        lists_counts: counts
       }
     });
   } catch (error) {
@@ -86,6 +95,49 @@ router.put('/profile', auth, async (req, res) => {
   } catch (error) {
     console.error('❌ Update profile error:', error);
     res.status(500).json({ error: 'Internal server error: ' + error.message });
+  }
+});
+
+// Получение списков текущего пользователя по конкретному статусу
+router.get('/lists', auth, async (req, res) => {
+  try {
+    const userId = req.user.user_id; // Извлекаем ID авторизованного пользователя из auth middleware
+    const { statusId } = req.query;  // Получаем id статуса из параметров строки 
+
+    if (!statusId) {
+      return res.status(400).json({ error: 'Параметр statusId обязателен для фильтрации' });
+    }
+
+    const query = `
+     SELECT 
+        ml.media_lists_id,
+        ml.season_id,
+        ml.status_id,
+        ml.updated_at,
+        s.title AS season_name,
+        m.title AS media_title,
+        s.poster_url,
+        r.rating AS user_rating
+      FROM user_media_lists ml
+      LEFT JOIN seasons s ON ml.season_id = s.season_id
+      LEFT JOIN media m ON s.media_id = m.media_id
+      LEFT JOIN ratings r ON r.season_id = ml.season_id AND r.user_id = ml.user_id
+      WHERE ml.user_id = ? AND ml.status_id = ?
+      ORDER BY ml.updated_at DESC
+    `;
+
+    // Выполняем запрос к базе данных MySQL
+    const [rows] = await pool.execute(query, [userId, statusId]);
+
+    // Возвращаем результат фронтенду
+    res.json({
+      success: true,
+      data: rows
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения списков пользователя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 });
 
