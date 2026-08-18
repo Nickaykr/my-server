@@ -59,12 +59,19 @@ npm install
 3. Настройте переменные окружения:
 Создайте файл `.env` в корневой папке проекта со следующими параметрами:
 ```env
-PORT=5000
-DB_HOST=localhost
+# База данных MySQL
+DB_HOST=127.0.0.1
+DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your_password
-DB_NAME=cinema_db
-JWT_SECRET=your_secret_jwt_key
+DB_NAME=onlinecinema
+
+# JWT Авторизация
+JWT_ACCESS_SECRET=your_super_secret_access_key
+JWT_REFRESH_SECRET=your_super_secret_refresh_key
+
+# Интеграции
+KINESCOPE_API_TOKEN=your_kinescope_token
 ```
 
 4. Запустите сервер:
