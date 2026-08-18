@@ -11,7 +11,7 @@
 * **Runtime Environment:** Node.js
 * **Framework:** Express.js
 * **Язык программирования:** JavaScript (ES6+)
-* **База данных:** MySQL / PostgreSQL
+* **База данных:** MySQL
 * **Аутентификация:** JWT (JSON Web Tokens) & Password Hashing (bcrypt)
 * **Протокол:** REST API (JSON)
 
