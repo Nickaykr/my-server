@@ -117,15 +117,17 @@ export const getAllUsers = async (req, res) => {
     try {
         const [rows] = await pool.query(`
            SELECT 
-                u.user_id, 
-                u.username, 
-                u.email, 
-                u.avatar_url, 
-                ua.name AS role_name,
-                s.name AS sub_name,
-                us.end_date AS sub_endDate,
-                -- Проверяем активность: дата окончания больше текущей
-                (us.end_date > NOW()) AS sub_isActive 
+              u.user_id, 
+              u.username, 
+              u.email, 
+              u.avatar_url, 
+              u.created_at,
+              u.last_login,
+              ua.role_name,
+              s.name AS sub_name,
+              us.end_date AS sub_endDate,
+              -- Проверяем активность: дата окончания больше текущей
+              (us.end_date > NOW()) AS sub_isActive 
             FROM users u
             JOIN user_access_levels ua ON u.role_id = ua.ID
             LEFT JOIN (
@@ -144,6 +146,8 @@ export const getAllUsers = async (req, res) => {
             email: row.email,
             avatar_url: row.avatar_url,
             role_name: row.role_name,
+            created_at: row.created_at,
+            last_login: row.last_login,
             subscription: row.sub_name ? {
                 name: row.sub_name,
                 endDate: row.sub_endDate,
@@ -152,7 +156,8 @@ export const getAllUsers = async (req, res) => {
         }));
         res.json(users);
     } catch (error) {
-        res.status(500).json({ error: "Ошибка при получении юзеров" });
+      console.error('❌ Ошибка в getAllUsers:', error);
+      res.status(500).json({ error: "Ошибка при получении юзеров" });
     }
 };
 

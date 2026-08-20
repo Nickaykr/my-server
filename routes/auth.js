@@ -108,14 +108,14 @@ router.post('/login', async (req, res) => {
     // Если лимит 1 (бесплатный)
     const isFreeTier = deviceLimit === 1;
 
-    if (!currentDeviceSession && activeSessions >= deviceLimit) {
-      return res.status(403).json({ 
-        error: 'Limit reached', 
-        message: isFreeTier 
-          ? "На этом аккаунте нету активной подписки, обновите или приобретите подписку" 
-          : `Вы достигли лимита устройств для вашего тарифа (${deviceLimit}).` 
-      });
-    }
+    // if (!currentDeviceSession && activeSessions >= deviceLimit) {
+    //   return res.status(403).json({ 
+    //     error: 'Limit reached', 
+    //     message: isFreeTier 
+    //       ? "На этом аккаунте нету активной подписки, обновите или приобретите подписку" 
+    //       : `Вы достигли лимита устройств для вашего тарифа (${deviceLimit}).` 
+    //   });
+    // }
 
     const { accessToken, refreshToken } = generateTokens(user);
     
